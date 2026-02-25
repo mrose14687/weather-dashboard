@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weather Observer JS</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <style>
+        body { background-color: #192857; margin: 0; font-family: sans-serif; color: white; }
+        #dashboard { display: grid; grid-template-columns: 1fr 1.5fr; height: 100vh; padding: 20px; gap: 20px; }
+        .chart-container { display: flex; flex-direction: column; gap: 10px; }
+        h1 { text-align: center; font-weight: 200; margin-bottom: 0; }
+    </style>
+</head>
+<body>
+
+<h1>24-Hour Weather Observer</h1>
+<div id="dashboard">
+    <div id="map-plot"></div>
+    <div class="chart-container">
+        <div id="temp-plot" style="height: 30%;"></div>
+        <div id="humid-plot" style="height: 30%;"></div>
+        <div id="wind-plot" style="height: 30%;"></div>
+    </div>
+</div>
+
+<script>
+// Theme Configuration
+const COLORS = {
+    bg: '#192857',
+    plot: '#121d3f',
+    temp: '#ff9f0a',
+    humid: '#64ffda',
+    wind: '#30d158',
+    grid: '#1e316d'
+};
+
+// 1. Load the data (exported from Python)
+fetch('weather_data.json')
+    .then(response => response.json())
+    .then(data => {
+        const sites = [...new Set(data.map(d => d.site_name))];
+        const initialSite = sites[0];
+
+        // 2. Render the Map
+        const uniqueLocs = sites.map(name => data.find(d => d.site_name === name));
+        
+        const mapData = [{
+            type: 'scattermapbox',
+            lat: uniqueLocs.map(d => d.latitude),
+            lon: uniqueLocs.map(d => d.longitude),
+            mode: 'markers',
+            marker: { size: 14, color: COLORS.temp },
+            text: uniqueLocs.map(d => d.site_name),
+            hoverinfo: 'text'
+        }];
+
+        const mapLayout = {
+            mapbox: { style: "dark", zoom: 4, center: { lat: uniqueLocs[0].latitude, lon: uniqueLocs[0].longitude } },
+            margin: { l: 0, r: 0, t: 0, b: 0 },
+            paper_bgcolor: COLORS.bg,
+            plot_bgcolor: COLORS.plot
+        };
+
+        Plotly.newPlot('map-plot', mapData, mapLayout, {mapboxAccessToken: 'YOUR_MAPBOX_TOKEN_OPTIONAL'});
+
+        // 3. Function to update charts
+        function updateCharts(siteName) {
+            const siteData = data.filter(d => d.site_name === siteName);
+            const times = siteData.map(d => d.sample_time);
+
+            const commonLayout = {
+                paper_bgcolor: COLORS.bg,
+                plot_bgcolor: COLORS.plot,
+                margin: { t: 30, b: 30, l: 50, r: 20 },
+                font: { color: 'white' },
+                xaxis: { gridcolor: COLORS.grid, showspikes: true },
+                yaxis: { gridcolor: COLORS.grid },
+                showlegend: false
+            };
+
+            // Temperature Trace
+            Plotly.newPlot('temp-plot', [{
+                x: times, y: siteData.map(d => d.air_temperature),
+                type: 'scatter', mode: 'lines', connectgaps: true,
+                line: { color: COLORS.temp, width: 3, shape: 'spline' },
+                fill: 'tozeroy', fillcolor: 'rgba(255, 159, 10, 0.1)'
+            }], { ...commonLayout, title: 'TEMPERATURE' });
+
+            // Humidity Trace
+            Plotly.newPlot('humid-plot', [{
+                x: times, y: siteData.map(d => d.relative_humidity),
+                type: 'scatter', mode: 'lines', connectgaps: true,
+                line: { color: COLORS.humid, width: 3, shape: 'spline' },
+                fill: 'tozeroy', fillcolor: 'rgba(100, 255, 218, 0.1)'
+            }], { ...commonLayout, title: 'HUMIDITY (%)' });
+
+            // Wind Trace
+            Plotly.newPlot('wind-plot', [{
+                x: times, y: siteData.map(d => d.wind_speed),
+                type: 'scatter', mode: 'lines', connectgaps: true,
+                line: { color: COLORS.wind, width: 3, shape: 'spline' },
+                fill: 'tozeroy', fillcolor: 'rgba(48, 209, 88, 0.1)'
+            }], { ...commonLayout, title: 'WIND SPEED' });
+        }
+
+        // 4. Interaction: Click on Map to update
+        document.getElementById('map-plot').on('plotly_click', function(clickData){
+            const newSite = clickData.points[0].text;
+            updateCharts(newSite);
+        });
+
+        // Initialize with first site
+        updateCharts(initialSite);
+    });
+</script>
+</body>
+</html>
