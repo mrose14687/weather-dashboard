@@ -89,7 +89,7 @@ fetch('weather_data.json')
             const trace = (yData, color) => [{
                 x: times, y: yData,
                 type: 'scatter', mode: 'lines', connectgaps: true,
-                line: { color: color, width: 3, shape: 'spline' },
+                line: { color: color, width: 3, shape: 'linear' },
                 fill: 'tozeroy', fillcolor: color + '22' // Adds subtle transparency
             }];
 
@@ -112,4 +112,5 @@ fetch('weather_data.json')
 </script>
 </body>
 </html>
+
 
