@@ -58,7 +58,7 @@ fetch('weather_data.json')
 
         const mapLayout = {
             map: { 
-                style: "dark-matter", // High-quality dark map from CartoDB (No token needed!)
+                style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
                 zoom: 8, 
                 center: { lat: uniqueLocs[0].latitude, lon: uniqueLocs[0].longitude } 
             },
@@ -112,3 +112,4 @@ fetch('weather_data.json')
 </script>
 </body>
 </html>
+
