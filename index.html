@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Observer Dashboard</title>
+
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-velocity/dist/leaflet-velocity.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+    <style>
+        :root {
+            --bg-color: #235280;
+            --plot-color: #182e63;
+            --marker-color: #578b54;
+            --temp-color: #ff9f0a;
+            --humid-color: #64ffda;
+            --wind-color: #30d158;
+            --grid-color: #7a99e6;
+            --text-color: #ffffff;
+            --header-color: #FFFFFF;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            margin: 0;
+            font-family: sans-serif;
+            color: var(--text-color);
+            overflow: hidden;
+            height: 100vh;
+        }
+        #dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;  /* Map is 50% of page and plots are other 50% */
+            height: 85vh;
+            padding: 20px;
+            gap: 20px;
+            min-height: 0;
+        }
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+        }
+        h1 {
+            text-align: center;
+            font-weight: 200;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            color: var(--header-color);
+        }
+        .chart-box {
+            background: var(--plot-color);
+            border-radius: 8px;
+            padding: 5px;
+            min-height: 0;
+            position: relative; /* Required for Leaflet */
+        }
+        .chart-container .chart-box {
+            flex: 1;
+        }
+
+        /* Ensure Leaflet fills its flex container */
+        #map-plot {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+            border-radius: 8px;
+        }
+
+        /* -------------------------------------------------------------------*/
+        /* For making the clusters ALL the same shade of green */
+        /* -------------------------------------------------------------------*/
+        /* Styling the outer, more transparent glow */
+
+        /*.marker-cluster-small,*/
+        /*.marker-cluster-medium,*/
+        /*.marker-cluster-large {*/
+        /*    background-color: rgba(87, 139, 84, 0.2) !important; !* 40% opacity of --marker-color *!*/
+        /*}*/
+
+        /*!* Styling the inner, more solid bubble *!*/
+        /*.marker-cluster-small div,*/
+        /*.marker-cluster-medium div,*/
+        /*.marker-cluster-large div {*/
+        /*    background-color: rgba(87, 139, 84, 0.5) !important; !* 80% opacity of --marker-color *!*/
+        /*    color: #FFFFFF !important; !* Keeps the count text crisp and white *!*/
+        /*    font-weight: bold;*/
+        /*}*/
+
+        /* -------------------------------------------------------------------*/
+        /* For making the clusters all green with darker green representing denser clusters */
+        /* -------------------------------------------------------------------*/
+
+        /* --- SMALL CLUSTERS (< 10) --- */
+        /*.marker-cluster-small {*/
+        /*    background-color: rgba(87, 139, 84, 0.2) !important; !* Very light/transparent green *!*/
+        /*}*/
+        /*.marker-cluster-small div {*/
+        /*    background-color: rgba(87, 139, 84, 0.5) !important; !* Lighter inner circle *!*/
+        /*    color: #fff;*/
+        /*}*/
+
+        /* --- MEDIUM CLUSTERS (10-99) --- */
+        /*.marker-cluster-medium {*/
+        /*    background-color: rgba(87, 139, 84, 0.4) !important; !* Moderate green *!*/
+        /*}*/
+        /*.marker-cluster-medium div {*/
+        /*    background-color: rgba(87, 139, 84, 0.8) !important; !* Solid inner circle *!*/
+        /*    color: #fff;*/
+        /*}*/
+
+        /* --- LARGE CLUSTERS (100+) --- */
+        /*.marker-cluster-large {*/
+        /*    background-color: rgba(87, 139, 84, 0.6) !important; !* Deepest outer glow *!*/
+        /*}*/
+        /*.marker-cluster-large div {*/
+        /*    background-color: rgb(45, 75, 43) !important; !* Very dark forest green *!*/
+        /*    color: #fff;*/
+        /*    font-weight: 800; !* Extra bold for visibility *!*/
+        /*}*/
+
+        /* Optional: Style the Leaflet tooltip to match the dark theme */
+        .leaflet-tooltip {
+            background: var(--plot-color);
+            color: var(--text-color);
+            border: 1px solid var(--grid-color);
+            border-radius: 4px;
+        }
+        .leaflet-tooltip-top:before { border-top-color: var(--grid-color);
+
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Avista WeatherNet Analysis</h1>
+    <h2 id="station-name" style="text-align: center; font-weight: 300; color: #44b2f9;">Loading...</h2>
+
+    <div id="dashboard">
+        <div id="map-plot" class="chart-box"></div>
+
+        <div class="chart-container">
+            <div id="temp-plot" class="chart-box"></div>
+            <div id="humid-plot" class="chart-box"></div>
+            <div id="wind-plot" class="chart-box"></div>
+        </div>
+    </div>
+
+<script>
+    // ==========================================
+    // 1. CONFIGURATION & STATE
+    // ==========================================
+    const CONFIG = {
+        DATA_URL: 'static/weather_data.json',
+        WIND_DATA_URL: 'static/wind_data.json', // Path to your dynamically generated wind data
+        CONTAINERS: {
+            MAP: 'map-plot',
+            TEMP: 'temp-plot',
+            HUMID: 'humid-plot',
+            WIND: 'wind-plot',
+            TITLE: 'station-name'
+        }
+    };
+
+    const rootStyles = getComputedStyle(document.documentElement);
+    const getCssVar = (name) => rootStyles.getPropertyValue(name).trim();
+
+    const COLORS = {
+        bg: getCssVar('--bg-color'),
+        plot: getCssVar('--plot-color'),
+        temp: getCssVar('--temp-color'),
+        humid: getCssVar('--humid-color'),
+        wind: getCssVar('--wind-color'),
+        grid: getCssVar('--grid-color'),
+        marker: getCssVar('--marker-color')
+    };
+
+    // ==========================================
+    // 2. DATA PROCESSING
+    // ==========================================
+    function groupDataByStation(data) {
+        return data.reduce((acc, current) => {
+            const site = current.site_name;
+            if (!acc[site]) acc[site] = [];
+            acc[site].push(current);
+            return acc;
+        }, {});
+    }
+
+    // ==========================================
+    // 3. RENDERING ENGINE
+    // ==========================================
+    function renderLeafletMap(locations, windGrid, onMarkerClick) {
+        const points = locations.map(loc => [loc.latitude, loc.longitude]);
+        const bounds = L.latLngBounds(points);
+        const spokaneRegion = bounds.pad(0.1);
+
+        const map = L.map(CONFIG.CONTAINERS.MAP, {
+            minZoom: 7,
+            maxZoom: 15,
+            maxBounds: spokaneRegion,
+            maxBoundsViscosity: 1.0,
+            zoomSnap: 0.5
+        }).fitBounds(bounds);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }).addTo(map);
+
+        // Wind Layer logic
+        if (windGrid && windGrid.length > 0) {
+            L.velocityLayer({
+                displayValues: true,
+                displayOptions: { velocityType: 'Local Wind', position: 'bottomleft' },
+                data: windGrid,
+                maxVelocity: 19.2,
+                velocityScale: 0.003,
+                particleMultiplier: 1/90, // Optional: lower the denominator to add MORE particles
+                colorScale: ["#182e63"] // Contrast color for the Positron theme
+            }).addTo(map);
+        }
+
+        // --- NEW: Initialize the Marker Cluster Group ---
+        const clusters = L.markerClusterGroup({
+            showCoverageOnHover: false, // Prevents showing the bounding box of clusters
+            zoomToBoundsOnClick: true, // Auto-zooms when a cluster is clicked
+            maxClusterRadius: 40       // The pixel radius a cluster covers (smaller = more markers visible)
+        });
+
+        // Map Station Markers
+        locations.forEach(loc => {
+            const towerIcon = L.divIcon({
+                className: 'tower-icon-container',
+                html: '<i class="fas fa-tower-broadcast" style="color: var(--marker-color); opacity: 0.8; font-size: 20px; text-shadow: 0px 0px 3px rgba(0,0,0,0.5);"></i>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 20]
+            });
+
+            const marker = L.marker([loc.latitude, loc.longitude], {
+                icon: towerIcon
+            });
+
+            marker.bindTooltip(loc.site_name, { direction: 'top', offset: [0, -20] });
+
+            marker.on('click', () => onMarkerClick(loc.site_name));
+
+            // Add marker to the cluster group instead of map directly
+            clusters.addLayer(marker);
+        });
+
+        // Add the cluster group to the map
+        map.addLayer(clusters);
+
+        setTimeout(() => map.invalidateSize(), 200);
+    }
+
+    function renderLineChart(containerId, xData, yData, color, title) {
+        const trace = [{
+            x: xData,
+            y: yData,
+            type: 'scatter',
+            mode: 'lines',
+            connectgaps: true,
+            line: { color: color, width: 3, shape: 'linear' },
+            fill: 'tozeroy',
+            fillcolor: color + '22'
+        }];
+
+        const layout = {
+            paper_bgcolor: COLORS.plot,
+            plot_bgcolor: COLORS.plot,
+            margin: { t: 35, b: 30, l: 50, r: 20 },
+            font: { color: 'white', size: 10 },
+            title: { text: title, font: { size: 14, color: 'white' } },
+            xaxis: { gridcolor: COLORS.grid, showspikes: true, showgrid: true, color: 'white' },
+            yaxis: { gridcolor: COLORS.grid, showgrid: true, color: 'white' },
+            showlegend: false
+        };
+
+        Plotly.newPlot(containerId, trace, layout, { responsive: true });
+    }
+
+    // ==========================================
+    // 4. MAIN CONTROLLER
+    // ==========================================
+    async function initDashboard() {
+        const titleEl = document.getElementById(CONFIG.CONTAINERS.TITLE);
+
+        try {
+            // Fetch both files simultaneously for speed
+            const [weatherRes, windRes] = await Promise.all([
+                fetch(CONFIG.DATA_URL),
+                fetch(CONFIG.WIND_DATA_URL)
+            ]);
+
+            if (!weatherRes.ok) throw new Error(`Could not load weather data: ${weatherRes.statusText}`);
+            if (!windRes.ok) console.warn(`Could not load wind data: ${windRes.statusText}. Map will render without wind lines.`);
+
+            const rawData = await weatherRes.json();
+            const windGrid = windRes.ok ? await windRes.json() : null;
+
+            if (!rawData || rawData.length === 0) throw new Error("Weather data is empty.");
+
+            const dataBySite = groupDataByStation(rawData);
+
+            // Extract Initial State
+            const sites = Object.keys(dataBySite);
+            const initialSite = sites[0];
+            const uniqueLocs = sites.map(name => dataBySite[name][0]);
+
+            // Define Chart Update Logic
+            const updateDashboardCharts = (siteName) => {
+                titleEl.innerText = siteName;
+                const siteData = dataBySite[siteName];
+                const times = siteData.map(d => d.sample_time_str || d.sample_time);
+
+                renderLineChart(CONFIG.CONTAINERS.TEMP, times, siteData.map(d => d.air_temperature), COLORS.temp, 'TEMPERATURE');
+                renderLineChart(CONFIG.CONTAINERS.HUMID, times, siteData.map(d => d.relative_humidity), COLORS.humid, 'HUMIDITY (%)');
+                renderLineChart(CONFIG.CONTAINERS.WIND, times, siteData.map(d => d.wind_speed), COLORS.wind, 'WIND SPEED');
+            };
+
+            // Render Leaflet Map and pass the newly fetched windGrid and update callback
+            renderLeafletMap(uniqueLocs, windGrid, updateDashboardCharts);
+
+            // Initialize First View for the charts
+            updateDashboardCharts(initialSite);
+
+        } catch (err) {
+            console.error("Dashboard Initialization Error:", err);
+            titleEl.innerText = "Error Loading Data";
+            titleEl.style.color = "red";
+            document.body.innerHTML += `<div style="color:red; text-align:center; padding: 20px;">${err.message}</div>`;
+        }
+    }
+
+    // Boot up
+    initDashboard();
+</script>
+</body>
+</html>
