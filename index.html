@@ -269,17 +269,69 @@
         setTimeout(() => map.invalidateSize(), 200);
     }
 
+    // function renderLineChart(containerId, xData, yData, color, title) {
+    //     const trace = [{
+    //         x: xData,
+    //         y: yData,
+    //         type: 'scatter',
+    //         mode: 'lines',
+    //         connectgaps: true,
+    //         line: { color: color, width: 3, shape: 'linear' },
+    //         fill: 'tozeroy',
+    //         fillcolor: color + '22'
+    //     }];
+    //
+    //     const layout = {
+    //         paper_bgcolor: COLORS.plot,
+    //         plot_bgcolor: COLORS.plot,
+    //         margin: { t: 35, b: 30, l: 50, r: 20 },
+    //         font: { color: 'white', size: 10 },
+    //         title: { text: title, font: { size: 14, color: 'white' } },
+    //         xaxis: { gridcolor: COLORS.grid, showspikes: true, showgrid: true, color: 'white' },
+    //         yaxis: { gridcolor: COLORS.grid, showgrid: true, color: 'white' },
+    //         showlegend: false
+    //     };
+    //
+    //     Plotly.newPlot(containerId, trace, layout, { responsive: true });
+    // }
+
     function renderLineChart(containerId, xData, yData, color, title) {
-        const trace = [{
+        const trace = {
             x: xData,
             y: yData,
             type: 'scatter',
             mode: 'lines',
             connectgaps: true,
             line: { color: color, width: 3, shape: 'linear' },
-            fill: 'tozeroy',
-            fillcolor: color + '22'
-        }];
+            fill: 'tozeroy'
+        };
+
+        if (containerId === CONFIG.CONTAINERS.TEMP) {
+            const ABSOLUTE_MIN = 0;
+            const ABSOLUTE_MAX = 100;
+
+            // --- MODIFICATION START: Opacity Control ---
+            const OPACITY = 0.4; // Set between 0.0 (transparent) and 1.0 (opaque)
+
+            trace.fillgradient = {
+                type: 'vertical',
+                colorscale: [
+                    [0, `rgba(29, 113, 242, ${OPACITY})`],    // 0°F
+                    [0.32, `rgba(28, 156, 246, ${OPACITY})`], // 32°F
+                    [0.5, `rgba(76, 217, 100, ${OPACITY})`],  // 50°F
+                    [0.7, `rgba(255, 204, 0, ${OPACITY})`],   // 70°F
+                    [0.85, `rgba(255, 149, 0, ${OPACITY})`],  // 85°F
+                    [1, `rgba(255, 59, 48, ${OPACITY})`]      // 100°F
+                ],
+                start: ABSOLUTE_MIN,
+                stop: ABSOLUTE_MAX
+            };
+            // --- MODIFICATION END ---
+
+            trace.line.color = '#ffffff';
+        } else {
+            trace.fillcolor = color + '22';
+        }
 
         const layout = {
             paper_bgcolor: COLORS.plot,
@@ -292,10 +344,8 @@
             showlegend: false
         };
 
-        Plotly.newPlot(containerId, trace, layout, { responsive: true });
+        Plotly.newPlot(containerId, [trace], layout, { responsive: true });
     }
-
-
     // ==========================================
     // 4. MAIN CONTROLLER
     // ==========================================
