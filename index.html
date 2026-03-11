@@ -355,27 +355,34 @@
         }
     }
 
-    // --- NEW: The Download Function ---
     function downloadJSON() {
-        if (!currentWeatherData) {
+        if (!currentWeatherData || currentWeatherData.length === 0) {
             alert("No data loaded yet!");
             return;
         }
 
-        // 1. Convert the data object to a formatted JSON string
+        // 1. Extract and sort the dates from the dataset to find the range
+        const times = currentWeatherData.map(d => new Date(d.sample_time_str || d.sample_time));
+        const start = new Date(Math.min(...times)).toISOString().split('T')[0];
+        const end = new Date(Math.max(...times)).toISOString().split('T')[0];
+
+        // 2. Get the current station name and clean it for a filename (remove spaces/special chars)
+        const rawStationName = document.getElementById(CONFIG.CONTAINERS.TITLE).innerText;
+        const cleanStationName = rawStationName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+        // 3. Create the dynamic filename
+        // Result example: weather_data_spokane_falls_2026-03-10_to_2026-03-11.json
+        const fileName = `weather_data_${cleanStationName}_${start}_to_${end}.json`;
+
+        // 4. Create the file blob and trigger download
         const dataStr = JSON.stringify(currentWeatherData, null, 4);
-
-        // 2. Create a "Blob" (Binary Large Object) of the data
         const blob = new Blob([dataStr], { type: 'application/json' });
-
-        // 3. Create a temporary 'a' tag to trigger the download
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
 
         link.href = url;
-        link.download = `avista_weather_export_${new Date().toISOString().split('T')[0]}.json`;
+        link.download = fileName;
 
-        // 4. Programmatically click the link and then clean up
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
