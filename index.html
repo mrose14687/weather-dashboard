@@ -166,8 +166,8 @@
     // 1. CONFIGURATION & STATE
     // ==========================================
     const CONFIG = {
-        DATA_URL: 'weather_data.json',
-        WIND_DATA_URL: 'wind_data.json', // Path to your dynamically generated wind data
+        DATA_URL: 'static/weather_data.json',
+        WIND_DATA_URL: 'static/wind_data.json', // Path to your dynamically generated wind data
         CONTAINERS: {
             MAP: 'map-plot',
             TEMP: 'temp-plot',
@@ -211,7 +211,7 @@
         const spokaneRegion = bounds.pad(0.1);
 
         const map = L.map(CONFIG.CONTAINERS.MAP, {
-            minZoom: 7,
+            minZoom: 7.5,
             maxZoom: 15,
             maxBounds: spokaneRegion,
             maxBoundsViscosity: 1.0,
@@ -311,7 +311,7 @@
             const ABSOLUTE_MAX = 100;
 
             // --- MODIFICATION START: Opacity Control ---
-            const OPACITY = 0.4; // Set between 0.0 (transparent) and 1.0 (opaque)
+            const OPACITY = 0.5; // Set between 0.0 (transparent) and 1.0 (opaque)
 
             trace.fillgradient = {
                 type: 'vertical',
